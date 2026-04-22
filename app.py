@@ -2,6 +2,7 @@ import streamlit as st
 from youtube_transcript_api import YouTubeTranscriptApi
 import requests
 import re
+import os
 
 # --- Config ---
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
@@ -16,12 +17,7 @@ def extract_video_id(url):
 # --- Helper: Get Transcript ---
 def get_transcript(video_id):
     ytt = YouTubeTranscriptApi()
-    try:
-        transcript = ytt.fetch(video_id)
-    except Exception:
-        # Try with different language
-        transcript_list = ytt.list(video_id)
-        transcript = transcript_list.find_transcript(['en']).fetch()
+    transcript = ytt.fetch(video_id)
     return " ".join([t.text for t in transcript])
 
 # --- Helper: Call Groq ---
