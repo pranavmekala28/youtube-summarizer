@@ -2,10 +2,12 @@ import streamlit as st
 from youtube_transcript_api import YouTubeTranscriptApi
 import requests
 import re
+import os
 
 # --- Config ---
-GEMINI_API_KEY = "AIzaSyA4L1YCT6YYOSlyxpAjfeIyi4qhXQSOlGI"
-GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+
 # --- Helper: Extract Video ID ---
 def extract_video_id(url):
     pattern = r"(?:v=|\/)([0-9A-Za-z_-]{11})"
@@ -18,12 +20,17 @@ def get_transcript(video_id):
     transcript = ytt.fetch(video_id)
     return " ".join([t.text for t in transcript])
 
-# --- Helper: Call Gemini ---
-def summarize_with_gemini(transcript):
+# --- Helper: Call Groq ---
+def summarize_with_groq(transcript):
+    headers = {
+        "Authorization": f"Bearer {GROQ_API_KEY}",
+        "Content-Type": "application/json"
+    }
     payload = {
-        "contents": [{
-            "parts": [{
-                "text": f"""You are a helpful assistant. Summarize the following YouTube video transcript.
+        "model": "llama-3.3-70b-versatile",
+        "messages": [{
+            "role": "user",
+            "content": f"""Summarize the following YouTube video transcript.
 
 Provide:
 1. A clear 3-5 sentence summary
@@ -32,24 +39,19 @@ Provide:
 
 Transcript:
 {transcript[:8000]}"""
-            }]
         }]
     }
-    response = requests.post(GEMINI_URL, json=payload)
+    response = requests.post(GROQ_URL, headers=headers, json=payload)
     result = response.json()
-
-    if "candidates" in result:
-        return result["candidates"][0]["content"]["parts"][0]["text"]
-    elif "error" in result:
-        error_msg = result["error"]["message"]
-        return f"❌ Gemini API Error: {error_msg}"
+    if "choices" in result:
+        return result["choices"][0]["message"]["content"]
     else:
-        return f"❌ Unexpected response: {result}"
+        return f"❌ Error: {result}"
 
 # --- Streamlit UI ---
 st.set_page_config(page_title="YouTube Summarizer", page_icon="🎬")
 st.title("🎬 AI YouTube Summarizer")
-st.markdown("Paste a YouTube URL and get an instant AI-powered summary using Gemini!")
+st.markdown("Paste a YouTube URL and get an instant AI-powered summary!")
 
 url = st.text_input("Enter YouTube URL:")
 
@@ -64,7 +66,7 @@ if st.button("Summarize"):
             with st.spinner("Fetching transcript and summarizing..."):
                 try:
                     transcript = get_transcript(video_id)
-                    summary = summarize_with_gemini(transcript)
+                    summary = summarize_with_groq(transcript)
                     st.success("Done!")
                     st.markdown("## 📝 Summary")
                     st.markdown(summary)
