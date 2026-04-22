@@ -16,7 +16,12 @@ def extract_video_id(url):
 # --- Helper: Get Transcript ---
 def get_transcript(video_id):
     ytt = YouTubeTranscriptApi()
-    transcript = ytt.fetch(video_id)
+    try:
+        transcript = ytt.fetch(video_id)
+    except Exception:
+        # Try with different language
+        transcript_list = ytt.list(video_id)
+        transcript = transcript_list.find_transcript(['en']).fetch()
     return " ".join([t.text for t in transcript])
 
 # --- Helper: Call Groq ---
