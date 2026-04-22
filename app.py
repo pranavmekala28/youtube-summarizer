@@ -1,27 +1,29 @@
 import streamlit as st
-from youtube_transcript_api import YouTubeTranscriptApi
 import requests
 import re
 import os
 
-# --- Config ---
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+YOUTUBE_API_KEY = os.environ.get("YOUTUBE_API_KEY")
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
-# --- Helper: Extract Video ID ---
 def extract_video_id(url):
     pattern = r"(?:v=|\/)([0-9A-Za-z_-]{11})"
     match = re.search(pattern, url)
     return match.group(1) if match else None
 
-# --- Helper: Get Transcript ---
-def get_transcript(video_id):
-    ytt = YouTubeTranscriptApi()
-    transcript = ytt.fetch(video_id)
-    return " ".join([t.text for t in transcript])
+def get_video_info(video_id):
+    url = f"https://www.googleapis.com/youtube/v3/videos?part=snippet&id={video_id}&key={YOUTUBE_API_KEY}"
+    response = requests.get(url)
+    data = response.json()
+    if "items" in data and len(data["items"]) > 0:
+        snippet = data["items"][0]["snippet"]
+        title = snippet["title"]
+        description = snippet["description"]
+        return title, description
+    return None, None
 
-# --- Helper: Call Groq ---
-def summarize_with_groq(transcript):
+def summarize_with_groq(title, description):
     headers = {
         "Authorization": f"Bearer {GROQ_API_KEY}",
         "Content-Type": "application/json"
@@ -30,15 +32,15 @@ def summarize_with_groq(transcript):
         "model": "llama-3.3-70b-versatile",
         "messages": [{
             "role": "user",
-            "content": f"""Summarize the following YouTube video transcript.
+            "content": f"""Summarize the following YouTube video based on its title and description.
 
 Provide:
 1. A clear 3-5 sentence summary
 2. 5 key takeaways as bullet points
 3. The main topic/theme in one line
 
-Transcript:
-{transcript[:8000]}"""
+Title: {title}
+Description: {description[:3000]}"""
         }]
     }
     response = requests.post(GROQ_URL, headers=headers, json=payload)
@@ -48,7 +50,6 @@ Transcript:
     else:
         return f"❌ Error: {result}"
 
-# --- Streamlit UI ---
 st.set_page_config(page_title="YouTube Summarizer", page_icon="🎬")
 st.title("🎬 AI YouTube Summarizer")
 st.markdown("Paste a YouTube URL and get an instant AI-powered summary!")
@@ -63,12 +64,16 @@ if st.button("Summarize"):
         if not video_id:
             st.error("Invalid YouTube URL. Please try again.")
         else:
-            with st.spinner("Fetching transcript and summarizing..."):
+            with st.spinner("Fetching video info and summarizing..."):
                 try:
-                    transcript = get_transcript(video_id)
-                    summary = summarize_with_groq(transcript)
-                    st.success("Done!")
-                    st.markdown("## 📝 Summary")
-                    st.markdown(summary)
+                    title, description = get_video_info(video_id)
+                    if not title:
+                        st.error("Could not fetch video info. Check your API key.")
+                    else:
+                        summary = summarize_with_groq(title, description)
+                        st.success("Done!")
+                        st.markdown(f"### 🎥 {title}")
+                        st.markdown("## 📝 Summary")
+                        st.markdown(summary)
                 except Exception as e:
                     st.error(f"Error: {str(e)}")
