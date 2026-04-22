@@ -16,6 +16,7 @@ def get_video_info(video_id):
     url = f"https://www.googleapis.com/youtube/v3/videos?part=snippet&id={video_id}&key={YOUTUBE_API_KEY}"
     response = requests.get(url)
     data = response.json()
+    st.write("Debug:", data)  # temporary debug line
     if "items" in data and len(data["items"]) > 0:
         snippet = data["items"][0]["snippet"]
         title = snippet["title"]
