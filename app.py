@@ -2,10 +2,9 @@ import streamlit as st
 from youtube_transcript_api import YouTubeTranscriptApi
 import requests
 import re
-import os
 
 # --- Config ---
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 # --- Helper: Extract Video ID ---
