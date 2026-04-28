@@ -1,4 +1,3 @@
-streamlit 
-groq 
-youtube_transcript_api 
-requests 
+streamlit
+requests
+yt-dlp
